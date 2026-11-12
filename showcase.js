@@ -8,6 +8,15 @@ function createShowcase(viewer, stage) {
  let manualUntil = 0;
  let heading;
  let cycleOffset = -1;
+ let updateDepth;
+
+ if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  viewer.addEventListener('load', () => {
+   import('./showcase-depth.js?v=1')
+    .then(({ createDepthRibbons }) => { updateDepth = createDepthRibbons(viewer); })
+    .catch(error => console.warn('Không thể tải dải sáng 3D.', error));
+  }, { once: true });
+ }
 
  viewer.addEventListener('camera-change', event => {
   if (event.detail.source === 'user-interaction') manualUntil = performance.now() + 6500;
@@ -19,30 +28,6 @@ function createShowcase(viewer, stage) {
   g.strokeStyle = color;
   g.lineWidth = width;
   g.stroke();
- }
-
- function halo({g, x, y, r, u, glow, rgb}) {
-  for (let k = 0; k < 4; k++) {
-   const p = (u * 2.5 + k / 4) % 1;
-   const radius = r * (.47 + .76 * p);
-   g.beginPath();
-   g.ellipse(x, y + r * .10, radius, radius * .76, -.12, 0, tau);
-   g.strokeStyle = `rgba(${rgb},${glow * .46 * Math.sin(Math.PI * p)})`;
-   g.lineWidth = 2 + 4 * (1 - p);
-   g.stroke();
-  }
- }
-
- function ribbon({g, x, y, r, t, glow, rgb}) {
-  for (let k = 0; k < 6; k++) {
-   const points = [];
-   for (let i = 0; i <= 50; i++) {
-    const a = i / 50 * Math.PI * 1.5 + t * .6 + k * .36;
-    const radius = r * (.78 + .04 * k);
-    points.push([x + Math.cos(a) * radius, y + Math.sin(a) * radius * .35 + (i / 50 - .5) * r * .85]);
-   }
-   line(g, points, `rgba(${rgb},${glow * (.12 + k * .04)})`, 1.5 + k * .35);
-  }
  }
 
  function starfield({g, x, y, r, t, glow, rgb, variation}) {
@@ -99,17 +84,6 @@ function createShowcase(viewer, stage) {
   }
  }
 
- function orbit({g, x, y, r, t, glow, rgb}) {
-  for (let k = 0; k < 3; k++) {
-   g.beginPath();
-   g.ellipse(x, y + r * .19, r * (1.02 - k * .10), r * (.34 + k * .08),
-    k * .62 - .52, t * .7 + k, t * .7 + k + 3.6);
-   g.strokeStyle = `rgba(${rgb},${glow * (.30 + k * .12)})`;
-   g.lineWidth = 2 + k;
-   g.stroke();
-  }
- }
-
  function laurel({g, x, y, r, t, glow, rgb}) {
   for (const side of [-1, 1]) {
    for (let i = 0; i < 12; i++) {
@@ -125,26 +99,19 @@ function createShowcase(viewer, stage) {
  }
 
  const scenes = [
-  { name:'halo', duration:11, rgb:'255,199,104', zoom:.085, motion:'hold', effect:halo },
-  { name:'ribbon', duration:20, rgb:'106,207,255', zoom:.045, motion:'turn', effect:ribbon },
+  { name:'halo', duration:11, rgb:'255,199,104', zoom:.085, motion:'hold' },
+  { name:'ribbon', duration:20, rgb:'106,207,255', zoom:.045, motion:'turn' },
   { name:'stars', duration:10, rgb:'230,239,255', zoom:.035, motion:'rock', effect:starfield },
   { name:'sweep', duration:9, rgb:'255,223,155', zoom:.10, motion:'hold', effect:sweep },
   { name:'rays', duration:19, rgb:'255,172,75', zoom:.045, motion:'turn', effect:rays },
   { name:'sparks', duration:10, rgb:'255,134,94', zoom:.055, motion:'rock', effect:sparks },
-  { name:'orbit', duration:20, rgb:'157,163,255', zoom:.05, motion:'turn', effect:orbit },
+  { name:'orbit', duration:20, rgb:'157,163,255', zoom:.05, motion:'turn' },
   { name:'laurel', duration:11, rgb:'255,215,124', zoom:.09, motion:'hold', effect:laurel },
  ];
  const duration = scenes.reduce((sum, scene) => sum + scene.duration, 0);
 
  return function tick(now, dt, g, width, height) {
-  const orbitAngle = viewer.getCameraOrbit().theta;
-  if (now < manualUntil) {
-   heading = undefined;
-   model.style.removeProperty('--show-scale');
-   model.style.removeProperty('--show-lift');
-   stage.style.removeProperty('--show-glow');
-   return;
-  }
+  const manual = now < manualUntil;
   const round = Math.floor(elapsed / duration);
   let t = elapsed % duration;
   let scene = scenes[0];
@@ -160,11 +127,16 @@ function createShowcase(viewer, stage) {
   if (scene.motion === 'hold') angle *= .24;
   if (scene.motion === 'turn') angle = tau * (u - .075 * Math.sin(tau * u));
 
-  // Use the angle nearest the current view so crossing zero never snaps the cup.
-  const desired = orbitAngle + angle;
-  if (heading === undefined) heading = viewer.turntableRotation;
-  heading += Math.atan2(Math.sin(desired - heading), Math.cos(desired - heading)) * (1 - Math.exp(-dt * 10));
-  viewer.resetTurntableRotation(heading);
+  if (manual) {
+   heading = undefined;
+  } else {
+   // Use the nearest angle so crossing zero never snaps the cup.
+   const desired = viewer.getCameraOrbit().theta + angle;
+   if (heading === undefined) heading = viewer.turntableRotation;
+   const difference = Math.atan2(Math.sin(desired - heading), Math.cos(desired - heading));
+   heading += difference * (1 - Math.exp(-dt * 10));
+   viewer.resetTurntableRotation(heading);
+  }
   elapsed += dt;
 
   if (cycleOffset !== round || stage.dataset.scene !== scene.name) {
@@ -176,6 +148,8 @@ function createShowcase(viewer, stage) {
   model.style.setProperty('--show-lift', (-height * .021 * glow).toFixed(2) + 'px');
   stage.style.setProperty('--show-glow', (.23 * glow).toFixed(3));
 
+  updateDepth?.(scene.name, t, u, glow, scene.rgb);
+  if (!scene.effect) return;
   g.save();
   g.globalCompositeOperation = 'screen';
   g.lineCap = 'round';
