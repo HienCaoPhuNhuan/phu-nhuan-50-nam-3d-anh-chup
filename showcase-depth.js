@@ -33,8 +33,9 @@ const fragment = `
    diffuse * haloEnds * variation, diffuseHalo);
   // Fade the halo before the model-viewer viewport clips its geometry.
   vec2 viewportPosition = abs(clipPosition.xy / clipPosition.w);
-  float edge = max(viewportPosition.x, viewportPosition.y);
-  float viewportFade = 1.0 - smoothstep(0.76, 0.985, edge);
+  float sides = 1.0 - smoothstep(0.86, 0.99, viewportPosition.x);
+  float topAndBottom = 1.0 - smoothstep(0.76, 0.985, viewportPosition.y);
+  float viewportFade = sides * topAndBottom;
   gl_FragColor = vec4(tint, strength * alpha * mix(1.0, viewportFade, diffuseHalo));
  }
 `;
