@@ -12,3 +12,17 @@
 .ignition{width:150px;height:150px;background:radial-gradient(circle,rgba(255,250,213,.95),rgba(255,221,131,.65) 9%,rgba(255,154,40,.22) 30%,transparent 68%);box-shadow:none!important}
 .arrival-flash{height:70px;background:radial-gradient(ellipse,rgba(255,238,185,.25),rgba(255,178,67,.08) 30%,transparent 68%);box-shadow:none;filter:blur(3px)}.arrival-flash::after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:linear-gradient(90deg,transparent 5%,rgba(255,204,109,.2) 25%,rgba(255,244,207,.8) 50%,rgba(255,204,109,.2) 75%,transparent 95%)}
 .display-ring{border:0;background:radial-gradient(ellipse,transparent 48%,rgba(230,196,117,.03) 60%,rgba(230,196,117,.16) 68%,rgba(230,196,117,.025) 77%,transparent 86%);box-shadow:none;filter:blur(1.5px)}
+
+/* The presentation takes over after the original reveal. */
+.revealed .model-reveal {
+ transform: translateY(var(--show-lift, 0px)) scale(var(--show-scale, 1));
+}
+.stage::before {
+ content: "";
+ position: absolute;
+ inset: 0;
+ pointer-events: none;
+ background: radial-gradient(ellipse at 50% 53%, rgb(var(--show-color, 255, 199, 104)), transparent 69%);
+ opacity: var(--show-glow, 0);
+ z-index: 0;
+}
