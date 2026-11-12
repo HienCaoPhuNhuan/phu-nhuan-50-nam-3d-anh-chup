@@ -7,9 +7,11 @@ const steps = 96;
 const tau = Math.PI * 2;
 const vertex = `
  varying vec2 ribbonUV;
+ varying vec4 clipPosition;
  void main() {
   ribbonUV = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  clipPosition = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  gl_Position = clipPosition;
  }
 `;
 const fragment = `
@@ -17,6 +19,7 @@ const fragment = `
  uniform float strength;
  uniform float diffuseHalo;
  varying vec2 ribbonUV;
+ varying vec4 clipPosition;
  void main() {
   float distanceFromCenter = abs(ribbonUV.y * 2.0 - 1.0);
   float core = exp(-distanceFromCenter * distanceFromCenter * 23.0);
@@ -28,7 +31,11 @@ const fragment = `
   float variation = 0.72 + 0.28 * sin(ribbonUV.x * 11.0 + 0.8);
   float alpha = mix(ends * (0.67 * core + 0.33 * softEdge),
    diffuse * haloEnds * variation, diffuseHalo);
-  gl_FragColor = vec4(tint, strength * alpha);
+  // Fade the halo before the model-viewer viewport clips its geometry.
+  vec2 viewportPosition = abs(clipPosition.xy / clipPosition.w);
+  float edge = max(viewportPosition.x, viewportPosition.y);
+  float viewportFade = 1.0 - smoothstep(0.76, 0.985, edge);
+  gl_FragColor = vec4(tint, strength * alpha * mix(1.0, viewportFade, diffuseHalo));
  }
 `;
 

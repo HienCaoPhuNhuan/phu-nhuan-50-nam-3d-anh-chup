@@ -12,7 +12,7 @@ function createShowcase(viewer, stage) {
 
  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
   viewer.addEventListener('load', () => {
-   import('./showcase-depth.js?v=halo-feather-1')
+   import('./showcase-depth.js?v=halo-viewport-1')
     .then(({ createDepthRibbons }) => { updateDepth = createDepthRibbons(viewer); })
     .catch(error => console.warn('Không thể tải dải sáng 3D.', error));
   }, { once: true });
